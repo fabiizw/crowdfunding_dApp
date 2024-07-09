@@ -1,5 +1,5 @@
-const MyContract = artifacts.require("MyContract");
+const ProjectFactory = artifacts.require("ProjectFactory");
 
 module.exports = function(deployer) {
-    deployer.deploy(MyContract);
+    deployer.deploy(ProjectFactory);
 };
