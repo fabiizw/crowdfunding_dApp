@@ -9,11 +9,11 @@ const app = express();
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 
 const projectFactoryABI = ProjectFactory.abi;
-const projectFactoryAddress = '0x3bD4684d0eE6173E8Cd3d77a485bbA92dbc94394'; // Update this with the deployed address
+const projectFactoryAddress = '0x6FD0970954f635e589e8c7bE7e9D70eD0Ec37984'; // Update this with the deployed address
 const projectFactoryContract = new web3.eth.Contract(projectFactoryABI, projectFactoryAddress);
 
 const userFactoryABI = UserFactory.abi;
-const userFactoryAddress = '0x19272F489e12B3e6F10f70972F63DD765c77aF7D'; // Update this with the deployed address
+const userFactoryAddress = '0xF6Ee64Be69930254aE9cD43a171F26Ee72499C28'; // Update this with the deployed address
 const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
 
 app.use(express.json());
@@ -26,7 +26,7 @@ function cleanAndConvert(obj) {
             continue; // Skip numerical keys and __length__
         }
         if (typeof obj[key] === 'bigint') {
-            cleanedObj[key] = obj[key].toString();
+            cleanedObj[key] = obj[key].toString(); // Keep as string
         } else if (typeof obj[key] === 'object') {
             cleanedObj[key] = cleanAndConvert(obj[key]);
         } else {
@@ -36,7 +36,7 @@ function cleanAndConvert(obj) {
     return cleanedObj;
 }
 
-// Function to check if a user is registered
+// Check if a user is registered
 async function isUserRegistered(address) {
     return await userFactoryContract.methods.isUserRegistered(address).call();
 }
@@ -52,10 +52,14 @@ app.post('/createUser', async (req, res) => {
 
         const receipt = await userFactoryContract.methods.createUser(name, age).send({ from, gas: 3000000 });
         console.log(receipt);
+        
+        const balance = await web3.eth.getBalance(from);
+
         res.json({
             message: "User created",
             name: name,
-            address: from
+            address: from,
+            balance: web3.utils.fromWei(balance.toString(), 'ether')
         });
     } catch (error) {
         console.error("Error creating user:", error);
@@ -96,7 +100,7 @@ app.get('/projects', async (req, res) => {
         const projectDetails = await Promise.all(projectAddresses.map(async (projectAddress) => {
             const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
             const details = await projectContract.methods.getProjectDetails().call();
-            // Convert amountRaised from Wei to Ether
+            // Convert goal and amountRaised from Wei to Ether
             details.amountRaised = web3.utils.fromWei(details.amountRaised.toString(), 'ether');
             return {
                 ...cleanAndConvert(details),
@@ -116,8 +120,12 @@ app.get('/users', async (req, res) => {
         const userDetails = await Promise.all(userAddresses.map(async (userAddress) => {
             const userContract = new web3.eth.Contract(User.abi, userAddress);
             const details = await userContract.methods.getUserInfo().call();
-            console.log(details)
-            return cleanAndConvert(details);
+            const balance = await web3.eth.getBalance(details.userAddress);
+            console.log(details);
+            return {
+                ...cleanAndConvert(details),
+                balance: web3.utils.fromWei(balance.toString(), 'ether')
+            };
         }));
         res.json({ users: userDetails });
     } catch (error) {
@@ -125,6 +133,7 @@ app.get('/users', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
 
 app.post('/contribute', async (req, res) => {
     const { projectAddress, amount, from } = req.body;
@@ -149,6 +158,7 @@ app.post('/contribute', async (req, res) => {
 
         const receipt = await projectContract.methods.contribute().send({ from, value: web3.utils.toWei(amount, 'ether'), gas: 3000000 });
         console.log(receipt);
+
         res.json({
             message: "Contribution successful",
             projectAddress: projectAddress,
@@ -187,6 +197,7 @@ app.post('/releaseFunds', async (req, res) => {
 
         const receipt = await projectContract.methods.releaseFunds().send({ from, gas: 3000000 });
         console.log(receipt);
+
         res.json({
             message: "Funds released successfully",
             projectAddress: projectAddress,
@@ -199,5 +210,5 @@ app.post('/releaseFunds', async (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log('Server listening on port 3000');
-});
+    console.log('Server listening on port 3000');
+  });

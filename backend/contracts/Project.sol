@@ -15,6 +15,7 @@ contract Project {
 
     ProjectDetails public project;
     mapping(address => uint) public contributions;
+    address[] public contributors;
 
     event ContributionMade(uint indexed projectId, address indexed contributor, uint amount);
     event FundsReleased(uint indexed projectId, uint amount);
@@ -44,6 +45,10 @@ contract Project {
         require(block.number <= project.deadline, "The funding period for this project has ended.");
         require(msg.value > 0, "Contribution amount must be greater than zero.");
 
+        if (contributions[msg.sender] == 0) {
+            contributors.push(msg.sender);
+        }
+
         project.amountRaised += msg.value;
         contributions[msg.sender] += msg.value;
 
@@ -61,19 +66,24 @@ contract Project {
         emit FundsReleased(project.id, project.amountRaised);
     }
 
-    function refund() public {
+    function refundAll() public {
         require(block.number > project.deadline, "Project deadline has not yet passed.");
         require(project.amountRaised < project.goal, "Funding goal was reached; no refunds available.");
-        require(contributions[msg.sender] > 0, "No contributions found for refund.");
+        require(project.isOpen, "Project is already closed.");
 
-        uint refundAmount = contributions[msg.sender];
-        contributions[msg.sender] = 0;
-        payable(msg.sender).transfer(refundAmount);
-
-        emit RefundIssued(project.id, msg.sender, refundAmount);
+        for (uint i = 0; i < contributors.length; i++) {
+            address contributor = contributors[i];
+            uint amount = contributions[contributor];
+            if (amount > 0) {
+                contributions[contributor] = 0;
+                payable(contributor).transfer(amount);
+                emit RefundIssued(project.id, contributor, amount);
+            }
+        }
+        project.isOpen = false;
     }
 
     function getProjectDetails() public view returns (ProjectDetails memory) {
-       return project;
+        return project;
     }
 }

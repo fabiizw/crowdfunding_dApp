@@ -15,7 +15,7 @@ contract UserFactory {
 
     function createUser(string memory _name, uint _age) public {
         require(!registeredUsers[msg.sender], "User already registered.");
-        
+
         User newUser = new User(_name, _age, msg.sender);
         users.push(newUser);
         registeredUsers[msg.sender] = true;
