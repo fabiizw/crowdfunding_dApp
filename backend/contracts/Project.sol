@@ -11,6 +11,7 @@ contract Project {
         uint amountRaised;
         uint deadline;
         bool isOpen;
+        address userAddress; //User who created the project
     }
 
     ProjectDetails public project;
@@ -20,7 +21,7 @@ contract Project {
     event FundsReleased(uint indexed projectId, uint amount);
     event RefundIssued(uint indexed projectId, address indexed contributor, uint amount);
 
-    constructor(uint projectId, string memory name, string memory description, uint goal, uint duration, address payable owner) {
+    constructor(uint projectId, string memory name, string memory description, uint goal, uint duration, address payable owner, address userAddress) {
         project = ProjectDetails({
             id: projectId,
             owner: owner,
@@ -29,7 +30,8 @@ contract Project {
             goal: goal,
             amountRaised: 0,
             deadline: block.timestamp + duration,
-            isOpen: true
+            isOpen: true,
+            userAddress: userAddress //User who created the project
         });
     }
 
