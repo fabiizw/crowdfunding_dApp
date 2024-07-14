@@ -25,7 +25,8 @@ contract Project {
         uint projectId,
         string memory name,
         string memory description,
-        uint goal, uint duration,
+        uint goal,
+        uint duration,
         address payable owner,
         address userAddress) {
         project = ProjectDetails({

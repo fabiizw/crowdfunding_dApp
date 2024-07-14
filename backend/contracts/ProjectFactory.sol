@@ -24,6 +24,8 @@ contract ProjectFactory {
     }
     function createProject(string memory name, string memory description, uint goal, uint duration) public {
         address userAddress = msg.sender; // Get the user address
+        //How to verify that the user who can create a project is already registered or verified?
+        
 
         projectCount++;
         Project newProject = new Project(projectCount, name, description, goal, duration, payable(msg.sender), userAddress);
