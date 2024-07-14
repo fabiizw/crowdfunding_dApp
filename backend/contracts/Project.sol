@@ -11,7 +11,6 @@ contract Project {
         uint amountRaised;
         uint deadline;
         bool isOpen;
-        address userAddress; //User who created the project
     }
 
     ProjectDetails public project;
@@ -27,8 +26,7 @@ contract Project {
         string memory description,
         uint goal,
         uint duration,
-        address payable owner,
-        address userAddress) {
+        address payable owner) {
         project = ProjectDetails({
             id: projectId,
             owner: owner,
@@ -37,14 +35,13 @@ contract Project {
             goal: goal,
             amountRaised: 0,
             deadline: block.number + duration,
-            isOpen: true,
-            userAddress: userAddress //User who created the project
+            isOpen: true
         });
     }
 
     function contribute() public payable {
         require(project.isOpen, "Project is not open for contributions.");
-        require(block.n() <= project.deadline, "The funding period for this project has ended.");
+        require(block.number <= project.deadline, "The funding period for this project has ended.");
         require(msg.value > 0, "Contribution amount must be greater than zero.");
 
         project.amountRaised += msg.value;
@@ -74,5 +71,9 @@ contract Project {
         payable(msg.sender).transfer(refundAmount);
 
         emit RefundIssued(project.id, msg.sender, refundAmount);
+    }
+
+    function getProjectDetails() public view returns (ProjectDetails memory) {
+       return project;
     }
 }

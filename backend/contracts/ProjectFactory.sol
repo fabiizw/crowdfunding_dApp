@@ -15,22 +15,18 @@ contract ProjectFactory {
         address owner,
         string name,
         uint goal,
-        uint deadline,
-        address userAddress
+        uint deadline
     );
 
     constructor(address _userFactory) {
         userFactory = UserFactory(_userFactory);
     }
-    function createProject(string memory name, string memory description, uint goal, uint duration) public {
-        address userAddress = msg.sender; // Get the user address
-        //How to verify that the user who can create a project is already registered or verified?
-        
 
+    function createProject(string memory name, string memory description, uint goal, uint duration) public {
         projectCount++;
-        Project newProject = new Project(projectCount, name, description, goal, duration, payable(msg.sender), userAddress);
+        Project newProject = new Project(projectCount, name, description, goal, duration, payable(msg.sender));
         projects.push(newProject);
-        emit ProjectCreated(projectCount, address(newProject), msg.sender, name, goal, duration, userAddress);
+        emit ProjectCreated(projectCount, address(newProject), msg.sender, name, goal, duration);
     }
 
     function getProjects() public view returns (Project[] memory) {
