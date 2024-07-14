@@ -68,8 +68,6 @@ contract Project {
     }
 
     function refundAll() internal {
-        require(project.amountRaised < project.goal, "Funding goal was reached; no refunds available.");
-
         if (contributors.length == 0) {
             return;
         }
@@ -86,13 +84,7 @@ contract Project {
     }
 
     function closeProject() public {
-        require(block.timestamp > project.deadline, "Project deadline has not yet passed.");
-        require(project.isOpen, "Project is already closed.");
-
-        if (project.amountRaised < project.goal) {
-            refundAll();
-        }
-
+        refundAll();
         project.isOpen = false;
         emit ProjectClosed(project.id);
     }
