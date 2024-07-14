@@ -21,7 +21,13 @@ contract Project {
     event FundsReleased(uint indexed projectId, uint amount);
     event RefundIssued(uint indexed projectId, address indexed contributor, uint amount);
 
-    constructor(uint projectId, string memory name, string memory description, uint goal, uint duration, address payable owner, address userAddress) {
+    constructor(
+        uint projectId,
+        string memory name,
+        string memory description,
+        uint goal, uint duration,
+        address payable owner,
+        address userAddress) {
         project = ProjectDetails({
             id: projectId,
             owner: owner,
@@ -29,7 +35,7 @@ contract Project {
             description: description,
             goal: goal,
             amountRaised: 0,
-            deadline: block.timestamp + duration,
+            deadline: block.number + duration,
             isOpen: true,
             userAddress: userAddress //User who created the project
         });
@@ -37,7 +43,7 @@ contract Project {
 
     function contribute() public payable {
         require(project.isOpen, "Project is not open for contributions.");
-        require(block.timestamp <= project.deadline, "The funding period for this project has ended.");
+        require(block.n() <= project.deadline, "The funding period for this project has ended.");
         require(msg.value > 0, "Contribution amount must be greater than zero.");
 
         project.amountRaised += msg.value;
@@ -58,7 +64,7 @@ contract Project {
     }
 
     function refund() public {
-        require(block.timestamp > project.deadline, "Project deadline has not yet passed.");
+        require(block.number > project.deadline, "Project deadline has not yet passed.");
         require(project.amountRaised < project.goal, "Funding goal was reached; no refunds available.");
         require(contributions[msg.sender] > 0, "No contributions found for refund.");
 
