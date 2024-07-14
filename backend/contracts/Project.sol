@@ -20,13 +20,14 @@ contract Project {
     event ContributionMade(uint indexed projectId, address indexed contributor, uint amount);
     event FundsReleased(uint indexed projectId, uint amount);
     event RefundIssued(uint indexed projectId, address indexed contributor, uint amount);
+    event ProjectClosed(uint indexed projectId);
 
     constructor(
         uint projectId,
         string memory name,
         string memory description,
         uint goal,
-        uint duration,
+        uint durationInMinutes,
         address payable owner) {
         project = ProjectDetails({
             id: projectId,
@@ -35,14 +36,14 @@ contract Project {
             description: description,
             goal: goal,
             amountRaised: 0,
-            deadline: block.number + duration,
+            deadline: block.timestamp + (durationInMinutes * 1 minutes),
             isOpen: true
         });
     }
 
     function contribute() public payable {
         require(project.isOpen, "Project is not open for contributions.");
-        require(block.number <= project.deadline, "The funding period for this project has ended.");
+        require(block.timestamp <= project.deadline, "The funding period for this project has ended.");
         require(msg.value > 0, "Contribution amount must be greater than zero.");
 
         if (contributions[msg.sender] == 0) {
@@ -66,10 +67,12 @@ contract Project {
         emit FundsReleased(project.id, project.amountRaised);
     }
 
-    function refundAll() public {
-        require(block.number > project.deadline, "Project deadline has not yet passed.");
+    function refundAll() internal {
         require(project.amountRaised < project.goal, "Funding goal was reached; no refunds available.");
-        require(project.isOpen, "Project is already closed.");
+
+        if (contributors.length == 0) {
+            return;
+        }
 
         for (uint i = 0; i < contributors.length; i++) {
             address contributor = contributors[i];
@@ -80,7 +83,18 @@ contract Project {
                 emit RefundIssued(project.id, contributor, amount);
             }
         }
+    }
+
+    function closeProject() public {
+        require(block.timestamp > project.deadline, "Project deadline has not yet passed.");
+        require(project.isOpen, "Project is already closed.");
+
+        if (project.amountRaised < project.goal) {
+            refundAll();
+        }
+
         project.isOpen = false;
+        emit ProjectClosed(project.id);
     }
 
     function getProjectDetails() public view returns (ProjectDetails memory) {

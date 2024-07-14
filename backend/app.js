@@ -9,11 +9,11 @@ const app = express();
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 
 const projectFactoryABI = ProjectFactory.abi;
-const projectFactoryAddress = '0x6FD0970954f635e589e8c7bE7e9D70eD0Ec37984'; // Update this with the deployed address
+const projectFactoryAddress = '0x17047DFf076Af596529F160a83e9A5E3074f555E'; // Update this with the deployed address
 const projectFactoryContract = new web3.eth.Contract(projectFactoryABI, projectFactoryAddress);
 
 const userFactoryABI = UserFactory.abi;
-const userFactoryAddress = '0xF6Ee64Be69930254aE9cD43a171F26Ee72499C28'; // Update this with the deployed address
+const userFactoryAddress = '0xA129d8fE66735361151A3C9eB705e3c03baE4033'; // Update this with the deployed address
 const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
 
 app.use(express.json());
@@ -34,6 +34,12 @@ function cleanAndConvert(obj) {
         }
     }
     return cleanedObj;
+}
+
+// Helper function to format timestamp to human-readable date
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp * 1000); // Convert to milliseconds
+    return date.toLocaleString('en-AU', { timeZone: 'Australia/Sydney' });
 }
 
 // Check if a user is registered
@@ -102,6 +108,7 @@ app.get('/projects', async (req, res) => {
             const details = await projectContract.methods.getProjectDetails().call();
             // Convert goal and amountRaised from Wei to Ether
             details.amountRaised = web3.utils.fromWei(details.amountRaised.toString(), 'ether');
+            details.deadline = formatTimestamp(parseInt(details.deadline.toString())); // Convert deadline to human-readable format
             return {
                 ...cleanAndConvert(details),
                 projectAddress: projectAddress
@@ -208,6 +215,36 @@ app.post('/releaseFunds', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+async function checkProjects() {
+    try {
+        const projectAddresses = await projectFactoryContract.methods.getProjects().call();
+        await Promise.all(projectAddresses.map(async (projectAddress) => {
+            const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
+            const details = await projectContract.methods.getProjectDetails().call();
+            const amountRaisedInEth = web3.utils.fromWei(details.amountRaised.toString(), 'ether'); // Convert amountRaised from Wei to Ether
+            // Automatically trigger refundAll if the deadline has passed
+
+            const currentTimestamp = Math.floor(Date.now() / 1000);
+            console.log(`Current timestamp: ${currentTimestamp}`);
+            console.log(`Project deadline: ${parseInt(details.deadline)}`);
+            console.log(`Amount raised: ${web3.utils.fromWei(details.amountRaised.toString(), 'ether')}`);
+            console.log(`Goal: ${details.goal.toString()}`);
+            console.log(`Is open: ${details.isOpen}`);
+
+            if (currentTimestamp > parseInt(details.deadline) && parseFloat(amountRaisedInEth) < parseFloat(details.goal) && details.isOpen) {
+                console.log(`Triggering refundAll for project: ${projectAddress}`);
+                await projectContract.methods.closeProject().send({ from: details.owner, gas: 3000000 });
+                console.log(`Project ${projectAddress} closed.`);
+            }
+        }));
+    } catch (error) {
+        console.error("Error checking projects:", error);
+    }
+}
+
+setInterval(checkProjects, 5 * 1000); // Every 5 seconds
+checkProjects();
 
 app.listen(3000, () => {
     console.log('Server listening on port 3000');
