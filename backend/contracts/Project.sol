@@ -6,7 +6,7 @@ contract Project {
         uint id;
         address payable owner;
         string name;
-        string description;
+        string ipfsHash;
         uint goal;
         uint amountRaised;
         uint deadline;
@@ -25,7 +25,7 @@ contract Project {
     constructor(
         uint projectId,
         string memory name,
-        string memory description,
+        string memory ipfsHash,
         uint goal,
         uint durationInMinutes,
         address payable owner) {
@@ -33,7 +33,7 @@ contract Project {
             id: projectId,
             owner: owner,
             name: name,
-            description: description,
+            ipfsHash: ipfsHash,
             goal: goal,
             amountRaised: 0,
             deadline: block.timestamp + (durationInMinutes * 1 minutes),

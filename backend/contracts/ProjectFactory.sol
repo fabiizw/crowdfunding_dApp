@@ -14,6 +14,7 @@ contract ProjectFactory {
         address projectAddress,
         address owner,
         string name,
+        string ipfsHash,
         uint goal,
         uint deadline
     );
@@ -22,11 +23,11 @@ contract ProjectFactory {
         userFactory = UserFactory(_userFactory);
     }
 
-    function createProject(string memory name, string memory description, uint goal, uint duration) public {
+    function createProject(string memory name, string memory ipfsHash, uint goal, uint duration) public {
         projectCount++;
-        Project newProject = new Project(projectCount, name, description, goal, duration, payable(msg.sender));
+        Project newProject = new Project(projectCount, name, ipfsHash, goal, duration, payable(msg.sender));
         projects.push(newProject);
-        emit ProjectCreated(projectCount, address(newProject), msg.sender, name, goal, duration);
+        emit ProjectCreated(projectCount, address(newProject), msg.sender, name, ipfsHash, goal, duration);
     }
 
     function getProjects() public view returns (Project[] memory) {
