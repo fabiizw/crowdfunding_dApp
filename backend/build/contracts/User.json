@@ -9684,7 +9684,7 @@
   },
   "networks": {},
   "schemaVersion": "3.4.16",
-  "updatedAt": "2024-07-14T13:41:02.200Z",
+  "updatedAt": "2024-07-18T09:47:58.916Z",
   "devdoc": {
     "details": "Stores data and manages actions for a single user.",
     "kind": "dev",

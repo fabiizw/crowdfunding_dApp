@@ -1,22 +1,75 @@
 const express = require('express');
-const { Web3 } = require('web3');
-const ProjectFactory = require("./build/contracts/ProjectFactory.json");
-const Project = require("./build/contracts/Project.json");
-const UserFactory = require("./build/contracts/UserFactory.json");
-const User = require("./build/contracts/User.json");
+const Web3 = require('web3');
+const ProjectFactory = require('./build/contracts/ProjectFactory.json');
+const Project = require('./build/contracts/Project.json');
+const UserFactory = require('./build/contracts/UserFactory.json');
+const User = require('./build/contracts/User.json');
 
 const app = express();
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 
 const projectFactoryABI = ProjectFactory.abi;
-const projectFactoryAddress = '0x1f51E20d0fD293cad19FC639ca8C269bEe744d3B'; // Update this with the deployed address
+const projectFactoryAddress = '0x6c5eFEA841726F85067857b6423667Ac41607754'; // Update this with the deployed address
 const projectFactoryContract = new web3.eth.Contract(projectFactoryABI, projectFactoryAddress);
 
 const userFactoryABI = UserFactory.abi;
-const userFactoryAddress = '0x7AC2A24cbC323a7038BFada071F89Ae54dB6C17c'; // Update this with the deployed address
+const userFactoryAddress = '0x333669669f015546bFb4af6bC5F68216578A143b'; // Update this with the deployed address
 const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
 
 app.use(express.json());
+
+let helia, jsonHandler;
+
+(async () => {
+    try {
+        const { createHelia } = await import('helia');
+        const { json } = await import('@helia/json');
+
+        // create a Helia node
+        helia = await createHelia();
+
+        // create a JSON handler on top of Helia
+        jsonHandler = json(helia);
+    } catch (error) {
+        console.error("Error initializing Helia or JSON handler:", error);
+    }
+})();
+
+// POST endpoint to upload JSON data to IPFS
+app.post('/uploadToIPFS', async (req, res) => {
+    const data = req.body;
+
+    try {
+        const cid = await jsonHandler.add(data);
+        console.log(cid);
+        const resp = await jsonHandler.get(cid);
+        console.log(resp)
+        
+        res.json({ resp });
+    } catch (error) {
+        console.error("Error uploading to IPFS:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET endpoint to retrieve JSON data from IPFS
+app.get('/retrieveFromIPFS/:cid', async (req, res) => {
+    const { cid } = req.params;
+    
+    try {
+       console.log(cid)
+       const resp = await jsonHandler.get(cid);
+       console.log(resp)
+
+        res.json({ resp });
+        
+    } catch (error) {
+        console.error("Error uploading to IPFS:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
 
 // Helper function to convert BigInt values to strings and remove numerical index fields
 function cleanAndConvert(obj) {
@@ -141,7 +194,6 @@ app.get('/users', async (req, res) => {
     }
 });
 
-
 app.post('/contribute', async (req, res) => {
     const { projectAddress, amount, from } = req.body;
 
@@ -248,4 +300,4 @@ checkProjects();
 
 app.listen(3000, () => {
     console.log('Server listening on port 3000');
-  });
+});
