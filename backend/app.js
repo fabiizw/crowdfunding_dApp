@@ -4,20 +4,26 @@ const ProjectFactory = require("./build/contracts/ProjectFactory.json");
 const Project = require("./build/contracts/Project.json");
 const UserFactory = require("./build/contracts/UserFactory.json");
 const User = require("./build/contracts/User.json");
-const { create } = require('ipfs-http-client');
+
+async function run() {
+// Import Helia and UnixFS
+const { createHelia } = await import('helia');
+const { unixfs } = await import('@helia/unixfs');
 
 const app = express();
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 
+// Initialize Helia
+const helia = await createHelia();
+const fs = unixfs(helia);
+
 const projectFactoryABI = ProjectFactory.abi;
-const projectFactoryAddress = '0x1f51E20d0fD293cad19FC639ca8C269bEe744d3B'; // Update this with the deployed address
+const projectFactoryAddress = '0x78e49005cF7c50DA8C2Ab012FD6b4edb57E8baF0'; // Update this with the deployed address
 const projectFactoryContract = new web3.eth.Contract(projectFactoryABI, projectFactoryAddress);
 
 const userFactoryABI = UserFactory.abi;
-const userFactoryAddress = '0x7AC2A24cbC323a7038BFada071F89Ae54dB6C17c'; // Update this with the deployed address
+const userFactoryAddress = '0x3D69067bE760C4B6Aaa2F8DFC5Ffe5a201581555'; // Update this with the deployed address
 const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
-
-const ipfs = create({ url: 'http://127.0.0.1:5001/api/v0' });
 
 app.use(express.json());
 
@@ -85,10 +91,12 @@ app.post('/createProject', async (req, res) => {
             return res.status(403).json({ error: "User not registered." });
         }
 
-        // Upload project details to IPFS
-        const projectDetails = { description };
-        const { path } = await ipfs.add(JSON.stringify(projectDetails));
-        const ipfsHash = path;
+        // Upload project description to IPFS
+        //const ipfsDetails = { description };
+        const encoder = new TextEncoder()
+        const bytes = encoder.encode(description)
+        const cid = await fs.addBytes(bytes)
+        const ipfsHash = cid.toString();
 
         const receipt = await projectFactoryContract.methods.createProject(name, ipfsHash, goal, duration).send({ from, gas: 3000000 });
         console.log(receipt);
@@ -115,10 +123,6 @@ app.get('/projects', async (req, res) => {
         const projectDetails = await Promise.all(projectAddresses.map(async (projectAddress) => {
             const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
             const details = await projectContract.methods.getProjectDetails().call();
-            // Fetch project details from IPFS
-            const ipfsData = await ipfs.cat(details.ipfsHash);
-            const projectInfo = JSON.parse(ipfsData.toString());
-            details.description = projectInfo.description;
             // Convert goal and amountRaised from Wei to Ether
             details.amountRaised = web3.utils.fromWei(details.amountRaised.toString(), 'ether');
             details.deadline = formatTimestamp(parseInt(details.deadline.toString())); // Convert deadline to human-readable format
@@ -262,3 +266,6 @@ checkProjects();
 app.listen(3000, () => {
     console.log('Server listening on port 3000');
 });
+}
+
+run();
