@@ -18,20 +18,24 @@ const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAdd
 
 app.use(express.json());
 
-let helia, jsonHandler;
+let helia, jsonHandler, CID;
 
 (async () => {
     try {
         const { createHelia } = await import('helia');
         const { json } = await import('@helia/json');
+        const cid = await import('multiformats/cid');
 
-        // create a Helia node
+        // Create a Helia node
         helia = await createHelia();
 
-        // create a JSON handler on top of Helia
+        // Create a JSON handler on top of Helia
         jsonHandler = json(helia);
+
+        // Initialize CID
+        CID = cid.CID;
     } catch (error) {
-        console.error("Error initializing Helia or JSON handler:", error);
+        console.error("Error initializing Helia, JSON handler or CID:", error);
     }
 })();
 
@@ -45,7 +49,7 @@ app.post('/uploadToIPFS', async (req, res) => {
         const resp = await jsonHandler.get(cid);
         console.log(resp)
         
-        res.json({ resp });
+        res.json({ cid : cid.toString() });
     } catch (error) {
         console.error("Error uploading to IPFS:", error);
         res.status(500).json({ error: error.message });
@@ -58,7 +62,7 @@ app.get('/retrieveFromIPFS/:cid', async (req, res) => {
     
     try {
        console.log(cid)
-       const resp = await jsonHandler.get(cid);
+       const resp = await jsonHandler.get(CID.parse(cid));
        console.log(resp)
 
         res.json({ resp });
