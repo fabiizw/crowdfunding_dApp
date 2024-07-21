@@ -293,3 +293,27 @@ checkProjects();
 app.listen(3000, () => {
     console.log('Server listening on port 3000');
 });
+
+app.get('/userCount', async (req, res) => {
+    try {
+        const userAddresses = await userFactoryContract.methods.getUsers().call();
+        const userCount = userAddresses.length;
+
+        res.json({ userCount: userCount });
+    } catch (error) {
+        console.error("Error fetching user count:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/projectCount', async (req, res) => {
+    try {
+        const projectAddresses = await projectFactoryContract.methods.getProjects().call();
+        const projectCount = projectAddresses.length;
+
+        res.json({ projectCount: projectCount });
+    } catch (error) {
+        console.error("Error fetching project count:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
