@@ -4,26 +4,22 @@ const ProjectFactory = require("./build/contracts/ProjectFactory.json");
 const Project = require("./build/contracts/Project.json");
 const UserFactory = require("./build/contracts/UserFactory.json");
 const User = require("./build/contracts/User.json");
+const { ThirdwebStorage } = require("@thirdweb-dev/storage");
 
-async function run() {
-// Import Helia and UnixFS
-const { createHelia } = await import('helia');
-const { unixfs } = await import('@helia/unixfs');
+const storage = new ThirdwebStorage({
+    secretKey: "RUB6gU43Sp357hh-y3xjR8Hp7KSauDTNIg521N8rAYfFbdvfVeSk4LR0rQU2eKF7QGMy6r5PjuD1x9Fiatp9Sg"
+});
 
 const app = express();
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 
-// Initialize Helia
-const helia = await createHelia();
-const fs = unixfs(helia);
+const userFactoryABI = UserFactory.abi;
+const userFactoryAddress = '0x19aE53c422BF6BD8Dc564996A34dDCD097694f29'; // Update this with the deployed address
+const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
 
 const projectFactoryABI = ProjectFactory.abi;
-const projectFactoryAddress = '0x78e49005cF7c50DA8C2Ab012FD6b4edb57E8baF0'; // Update this with the deployed address
+const projectFactoryAddress = '0xF2f2355D19E6F424C5285322f71Ab45944F15d8F'; // Update this with the deployed address
 const projectFactoryContract = new web3.eth.Contract(projectFactoryABI, projectFactoryAddress);
-
-const userFactoryABI = UserFactory.abi;
-const userFactoryAddress = '0x3D69067bE760C4B6Aaa2F8DFC5Ffe5a201581555'; // Update this with the deployed address
-const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
 
 app.use(express.json());
 
@@ -57,7 +53,7 @@ async function isUserRegistered(address) {
 }
 
 app.post('/createUser', async (req, res) => {
-    const { name, age, from } = req.body;
+    const { name, linkedin, twitter, bio, from } = req.body;
 
     try {
         const isRegistered = await isUserRegistered(from);
@@ -65,14 +61,28 @@ app.post('/createUser', async (req, res) => {
             return res.status(403).json({ error: "User already registered." });
         }
 
-        const receipt = await userFactoryContract.methods.createUser(name, age).send({ from, gas: 3000000 });
+        // Prepare user details for IPFS upload
+        const userDetails = {};
+        if (name) userDetails.name = name;
+        if (linkedin) userDetails.linkedin = linkedin;
+        if (twitter) userDetails.twitter = twitter;
+        if (bio) userDetails.bio = bio;
+
+        let ipfsURL = '';
+
+        if (Object.keys(userDetails).length > 0) {
+            // Upload user details to IPFS using Thirdweb storage
+            const upload = await storage.upload(JSON.stringify(userDetails));
+            ipfsURL = storage.resolveScheme(upload);
+        }
+
+        const receipt = await userFactoryContract.methods.createUser(ipfsURL).send({ from, gas: 3000000 });
         console.log(receipt);
         
         const balance = await web3.eth.getBalance(from);
 
         res.json({
             message: "User created",
-            name: name,
             address: from,
             balance: web3.utils.fromWei(balance.toString(), 'ether')
         });
@@ -84,36 +94,66 @@ app.post('/createUser', async (req, res) => {
 
 app.post('/createProject', async (req, res) => {
     const { name, description, goal, duration, from } = req.body;
-
+  
     try {
+        if (!name || !description) {
+            return res.status(400).json({ error: 'Project name and description are required.' });
+        }
+  
         const isRegistered = await isUserRegistered(from);
         if (!isRegistered) {
-            return res.status(403).json({ error: "User not registered." });
+            return res.status(403).json({ error: 'User not registered.' });
         }
-
-        // Upload project description to IPFS
-        //const ipfsDetails = { description };
-        const encoder = new TextEncoder()
-        const bytes = encoder.encode(description)
-        const cid = await fs.addBytes(bytes)
-        const ipfsHash = cid.toString();
-
-        const receipt = await projectFactoryContract.methods.createProject(name, ipfsHash, goal, duration).send({ from, gas: 3000000 });
+  
+        // Prepare project details for IPFS upload
+        const projectDetails = { name, description };
+        const upload = await storage.upload(JSON.stringify(projectDetails));
+        const ipfsURL = storage.resolveScheme(upload);
+  
+        // Create project on the blockchain with the IPFS URL
+        const receipt = await projectFactoryContract.methods.createProject(ipfsURL, goal, duration).send({ from, gas: 3000000 });
         console.log(receipt);
-
+  
         const projectAddress = receipt.events.ProjectCreated.returnValues.projectAddress;
-
+  
         res.json({
-            message: "Project created",
-            name: name,
+            message: 'Project created',
             from: from,
             goal: goal,
             projectAddress: projectAddress,
-            ipfsHash: ipfsHash
+            ipfsURL: ipfsURL,
         });
     } catch (error) {
-        console.error("Error creating project:", error);
+        console.error('Error creating project:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/users', async (req, res) => {
+    try {
+      const userAddresses = await userFactoryContract.methods.getUsers().call();
+      const userDetails = await Promise.all(userAddresses.map(async (userAddress) => {
+        const userContract = new web3.eth.Contract(User.abi, userAddress);
+        const details = await userContract.methods.getUserInfo().call();
+        const balance = await web3.eth.getBalance(details.userAddress);
+        console.log(details);
+  
+        let offChainDetails = {};
+        if (details.ipfsURL) {
+          const response = await storage.download(details.ipfsURL);
+          offChainDetails = await response.json();
+        }
+    
+        return {
+          ...cleanAndConvert(details),
+          ...offChainDetails,
+          balance: web3.utils.fromWei(balance.toString(), 'ether')
+        };
+    }));
+      res.json({ users: userDetails });
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: error.message });
     }
 });
 
@@ -121,43 +161,29 @@ app.get('/projects', async (req, res) => {
     try {
         const projectAddresses = await projectFactoryContract.methods.getProjects().call();
         const projectDetails = await Promise.all(projectAddresses.map(async (projectAddress) => {
-            const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
-            const details = await projectContract.methods.getProjectDetails().call();
-            // Convert goal and amountRaised from Wei to Ether
-            details.amountRaised = web3.utils.fromWei(details.amountRaised.toString(), 'ether');
-            details.deadline = formatTimestamp(parseInt(details.deadline.toString())); // Convert deadline to human-readable format
-            return {
-                ...cleanAndConvert(details),
-                projectAddress: projectAddress
-            };
-        }));
+        const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
+        const details = await projectContract.methods.getProjectDetails().call();
+        const balance = await web3.eth.getBalance(details.owner);
+  
+        let offChainDetails = {};
+        if (details.ipfsURL) {
+            const response = await fetch(details.ipfsURL);
+            offChainDetails = await response.json();
+        }
+  
+        return {
+            ...cleanAndConvert(details),
+            ...offChainDetails,
+            balance: web3.utils.fromWei(balance.toString(), 'ether'),
+            projectAddress: projectAddress
+        };
+    }));
         res.json({ projects: projectDetails });
     } catch (error) {
         console.error("Error fetching projects:", error);
         res.status(500).json({ error: error.message });
     }
 });
-
-app.get('/users', async (req, res) => {
-    try {
-        const userAddresses = await userFactoryContract.methods.getUsers().call();
-        const userDetails = await Promise.all(userAddresses.map(async (userAddress) => {
-            const userContract = new web3.eth.Contract(User.abi, userAddress);
-            const details = await userContract.methods.getUserInfo().call();
-            const balance = await web3.eth.getBalance(details.userAddress);
-            console.log(details);
-            return {
-                ...cleanAndConvert(details),
-                balance: web3.utils.fromWei(balance.toString(), 'ether')
-            };
-        }));
-        res.json({ users: userDetails });
-    } catch (error) {
-        console.error("Error fetching users:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
 
 app.post('/contribute', async (req, res) => {
     const { projectAddress, amount, from } = req.body;
@@ -266,6 +292,3 @@ checkProjects();
 app.listen(3000, () => {
     console.log('Server listening on port 3000');
 });
-}
-
-run();

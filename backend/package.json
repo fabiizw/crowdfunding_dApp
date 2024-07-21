@@ -17,10 +17,8 @@
   },
   "homepage": "https://github.com/fabiizw/crowdfunding_dApp#readme",
   "dependencies": {
-    "@helia/unixfs": "^3.0.6",
+    "@thirdweb-dev/storage": "^2.0.15",
     "express": "^4.19.2",
-    "helia": "^4.2.4",
-    "ipfs-http-client": "^60.0.1",
     "web3": "^4.10.0"
   }
 }
