@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
-   },
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fabiizw/crowdfunding_dApp.git"
@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/fabiizw/crowdfunding_dApp#readme",
   "dependencies": {
+    "@thirdweb-dev/storage": "^2.0.15",
     "express": "^4.19.2",
     "web3": "^4.10.0"
   }

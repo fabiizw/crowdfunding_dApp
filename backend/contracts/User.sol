@@ -7,16 +7,14 @@ pragma solidity ^0.8.0;
  */
 contract User {
     struct UserInfo {
-        string name;
-        uint age;
+        string ipfsURL;
         address userAddress;
     }
 
     UserInfo public userInfo;
 
-    constructor(string memory _name, uint _age, address _userAddress) {
-        userInfo.name = _name;
-        userInfo.age = _age;
+    constructor(string memory _ipfsURL, address _userAddress) {
+        userInfo.ipfsURL = _ipfsURL;
         userInfo.userAddress = _userAddress;
     }
 
