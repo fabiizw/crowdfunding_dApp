@@ -14,11 +14,11 @@ const app = express();
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 
 const userFactoryABI = UserFactory.abi;
-const userFactoryAddress = '0x19aE53c422BF6BD8Dc564996A34dDCD097694f29'; // Update this with the deployed address
+const userFactoryAddress = '0x036fD16Ae87289B46A0103674BB6A636573F4B57'; // Update this with the deployed address
 const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
 
 const projectFactoryABI = ProjectFactory.abi;
-const projectFactoryAddress = '0xF2f2355D19E6F424C5285322f71Ab45944F15d8F'; // Update this with the deployed address
+const projectFactoryAddress = '0x8e6782659DD3718cC8b9b58A00B8B248337AD4f4'; // Update this with the deployed address
 const projectFactoryContract = new web3.eth.Contract(projectFactoryABI, projectFactoryAddress);
 
 app.use(express.json());
@@ -163,7 +163,9 @@ app.get('/projects', async (req, res) => {
         const projectDetails = await Promise.all(projectAddresses.map(async (projectAddress) => {
         const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
         const details = await projectContract.methods.getProjectDetails().call();
-        const balance = await web3.eth.getBalance(details.owner);
+        // Convert goal and amountRaised from Wei to Ether
+        details.amountRaised = web3.utils.fromWei(details.amountRaised.toString(), 'ether');
+        details.deadline = formatTimestamp(parseInt(details.deadline.toString())); // Convert deadline to human-readable format
   
         let offChainDetails = {};
         if (details.ipfsURL) {
@@ -174,7 +176,6 @@ app.get('/projects', async (req, res) => {
         return {
             ...cleanAndConvert(details),
             ...offChainDetails,
-            balance: web3.utils.fromWei(balance.toString(), 'ether'),
             projectAddress: projectAddress
         };
     }));
@@ -286,7 +287,7 @@ async function checkProjects() {
     }
 }
 
-setInterval(checkProjects, 5 * 1000); // Every 5 seconds
+setInterval(checkProjects, 30 * 1000); // Every 30 seconds
 checkProjects();
 
 app.listen(3000, () => {
