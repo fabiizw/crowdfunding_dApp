@@ -78,7 +78,7 @@ app.post('/createUser', async (req, res) => {
 
         const receipt = await userFactoryContract.methods.createUser(ipfsURL).send({ from, gas: 3000000 });
         console.log(receipt);
-        
+
         const balance = await web3.eth.getBalance(from);
 
         res.json({
@@ -94,28 +94,28 @@ app.post('/createUser', async (req, res) => {
 
 app.post('/createProject', async (req, res) => {
     const { name, description, goal, duration, from } = req.body;
-  
+
     try {
         if (!name || !description) {
             return res.status(400).json({ error: 'Project name and description are required.' });
         }
-  
+
         const isRegistered = await isUserRegistered(from);
         if (!isRegistered) {
             return res.status(403).json({ error: 'User not registered.' });
         }
-  
+
         // Prepare project details for IPFS upload
         const projectDetails = { name, description };
         const upload = await storage.upload(JSON.stringify(projectDetails));
         const ipfsURL = storage.resolveScheme(upload);
-  
+
         // Create project on the blockchain with the IPFS URL
         const receipt = await projectFactoryContract.methods.createProject(ipfsURL, goal, duration).send({ from, gas: 3000000 });
         console.log(receipt);
-  
+
         const projectAddress = receipt.events.ProjectCreated.returnValues.projectAddress;
-  
+
         res.json({
             message: 'Project created',
             from: from,
@@ -137,13 +137,13 @@ app.get('/users', async (req, res) => {
         const details = await userContract.methods.getUserInfo().call();
         const balance = await web3.eth.getBalance(details.userAddress);
         console.log(details);
-  
+
         let offChainDetails = {};
         if (details.ipfsURL) {
           const response = await storage.download(details.ipfsURL);
           offChainDetails = await response.json();
         }
-    
+
         return {
           ...cleanAndConvert(details),
           ...offChainDetails,
@@ -166,13 +166,13 @@ app.get('/projects', async (req, res) => {
         // Convert goal and amountRaised from Wei to Ether
         details.amountRaised = web3.utils.fromWei(details.amountRaised.toString(), 'ether');
         details.deadline = formatTimestamp(parseInt(details.deadline.toString())); // Convert deadline to human-readable format
-  
+
         let offChainDetails = {};
         if (details.ipfsURL) {
             const response = await fetch(details.ipfsURL);
             offChainDetails = await response.json();
         }
-  
+
         return {
             ...cleanAndConvert(details),
             ...offChainDetails,
