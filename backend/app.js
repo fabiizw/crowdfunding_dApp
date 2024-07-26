@@ -14,11 +14,11 @@ const app = express();
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 
 const userFactoryABI = UserFactory.abi;
-const userFactoryAddress = '0x036fD16Ae87289B46A0103674BB6A636573F4B57'; // Update this with the deployed address
+const userFactoryAddress = '0xa77750539969ab7108B089Bd1D02524f5BE7bEa3'; // Update this with the deployed address
 const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
 
 const projectFactoryABI = ProjectFactory.abi;
-const projectFactoryAddress = '0x8e6782659DD3718cC8b9b58A00B8B248337AD4f4'; // Update this with the deployed address
+const projectFactoryAddress = '0x55F8fBAb4Ac183B2D01C7B83182ADEeC1Cf8c327'; // Update this with the deployed address
 const projectFactoryContract = new web3.eth.Contract(projectFactoryABI, projectFactoryAddress);
 
 app.use(express.json());
@@ -136,8 +136,7 @@ app.get('/users', async (req, res) => {
         const userContract = new web3.eth.Contract(User.abi, userAddress);
         const details = await userContract.methods.getUserInfo().call();
         const balance = await web3.eth.getBalance(details.userAddress);
-        console.log(details);
-
+    
         let offChainDetails = {};
         if (details.ipfsURL) {
           const response = await storage.download(details.ipfsURL);
@@ -260,40 +259,6 @@ app.post('/releaseFunds', async (req, res) => {
     }
 });
 
-async function checkProjects() {
-    try {
-        const projectAddresses = await projectFactoryContract.methods.getProjects().call();
-        await Promise.all(projectAddresses.map(async (projectAddress) => {
-            const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
-            const details = await projectContract.methods.getProjectDetails().call();
-            const amountRaisedInEth = web3.utils.fromWei(details.amountRaised.toString(), 'ether'); // Convert amountRaised from Wei to Ether
-            // Automatically trigger refundAll if the deadline has passed
-
-            const currentTimestamp = Math.floor(Date.now() / 1000);
-            console.log(`Current timestamp: ${currentTimestamp}`);
-            console.log(`Project deadline: ${parseInt(details.deadline)}`);
-            console.log(`Amount raised: ${web3.utils.fromWei(details.amountRaised.toString(), 'ether')}`);
-            console.log(`Goal: ${details.goal.toString()}`);
-            console.log(`Is open: ${details.isOpen}`);
-
-            if (currentTimestamp > parseInt(details.deadline) && parseFloat(amountRaisedInEth) < parseFloat(details.goal) && details.isOpen) {
-                console.log(`Triggering refundAll for project: ${projectAddress}`);
-                await projectContract.methods.closeProject().send({ from: details.owner, gas: 3000000 });
-                console.log(`Project ${projectAddress} closed.`);
-            }
-        }));
-    } catch (error) {
-        console.error("Error checking projects:", error);
-    }
-}
-
-setInterval(checkProjects, 30 * 1000); // Every 30 seconds
-checkProjects();
-
-app.listen(3000, () => {
-    console.log('Server listening on port 3000');
-});
-
 app.get('/userCount', async (req, res) => {
     try {
         const userAddresses = await userFactoryContract.methods.getUsers().call();
@@ -317,3 +282,31 @@ app.get('/projectCount', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+async function checkProjects() {
+    try {
+        const projectAddresses = await projectFactoryContract.methods.getProjects().call();
+        await Promise.all(projectAddresses.map(async (projectAddress) => {
+            const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
+            const details = await projectContract.methods.getProjectDetails().call();
+            const amountRaisedInEth = web3.utils.fromWei(details.amountRaised.toString(), 'ether'); // Convert amountRaised from Wei to Ether
+            // Automatically trigger refundAll if the deadline has passed
+
+            const currentTimestamp = Math.floor(Date.now() / 1000);
+        
+            if (currentTimestamp > parseInt(details.deadline) && parseFloat(amountRaisedInEth) < parseFloat(details.goal) && details.isOpen) {  
+                await projectContract.methods.closeProject().send({ from: details.owner, gas: 3000000 });
+            }
+        }));
+    } catch (error) {
+        console.error("Error checking projects:", error);
+    }
+}
+
+setInterval(checkProjects, 30 * 1000); // Every 30 seconds
+checkProjects();
+
+app.listen(3000, () => {
+    console.log('Server listening on port 3000');
+});
+

@@ -33,15 +33,11 @@ const getBalance = (account, at) =>
 async function calculateGasCost(txInfo) {
     // Obtain gas used and convert to BN
     const gasUsed = web3.utils.toBN(txInfo.receipt.gasUsed);
-    // console.log(`GasUsed: ${txInfo.receipt.gasUsed}`);
-
+   
     // Obtain gas price
     const tx = await web3.eth.getTransaction(txInfo.tx);
     const gasPrice = web3.utils.toBN(tx.gasPrice);
-    // console.log(`GasPrice: ${tx.gasPrice}`);
-
-    // console.log(`gasPrice * gasUsed = ${gasPrice.mul(gasUsed)}`);
-
+    
     return gasPrice.mul(gasUsed);
 }
 
@@ -162,36 +158,6 @@ contract('ProjectFactory', accounts => {
             );
         });
 
-        // it("Funding period has ended", async () => {
-        //     const ipfsStr = "project 1.2";
-        //     const goal = 1;
-        //     const duration = 1;
-
-        //     // Create the project through accountOne
-        //     const projectReceipt = await ProjectFactoryInstance.
-        //                                 createProject(ipfsStr, goal, duration);
-
-        //     let projectAddress;
-
-        //     truffleAssert.eventEmitted(projectReceipt, 'ProjectCreated', (ev) => {
-        //         projectAddress = ev.projectAddress;
-        //         return ev.owner == accountOne && ev.ipfsURL == ipfsStr;
-        //     });
-
-        //     projectInstance = await Project.at(projectAddress);
-
-        //     //Mock a delay
-        //     expect(setTimeout).toHaveBeenCalledTimes(1);
-        //     expect(setTimeout).toHaveBeenLastCalledWith(expect.any(Function), 60000);
-
-        //     // Check for error after mocked delay
-        //     await truffleAssert.reverts(
-        //         projectInstance.contribute({from: accountTwo, value: web3.utils.toBN(0)}),
-        //         "The funding period for this project has ended."
-        //     );
-
-        // });
-
         it("0 amount contributed", async () => {
             const ipfsStr = "project 1.3";
             const goal = 1;
@@ -294,8 +260,6 @@ contract('ProjectFactory', accounts => {
 
             projectInstance = await Project.at(projectAddress);
 
-            // await projectInstance.contribute({from: accountTwo, value: web3.utils.toBN(1)})
-
             // Close the project
             await projectInstance.closeProject();
 
@@ -345,10 +309,6 @@ contract('ProjectFactory', accounts => {
         // Get initial balance of two accounts
         const initAccTwoBal = web3.utils.toBN(await getBalance(accountTwo));
         const initAccThreeBal = web3.utils.toBN(await getBalance(accountThree));
-
-        console.log(`TWO'S INITIAL: ${initAccTwoBal}`);
-        console.log(`THREE'S INITIAL: ${initAccThreeBal}`);
-
         const cont = "2"
 
         // Contribute with two accounts and collect their receipts
@@ -364,11 +324,6 @@ contract('ProjectFactory', accounts => {
         // Get gasCost for both accounts
         const gasCostTwo = await calculateGasCost(txInfoTwo);
         const gasCostThree = await calculateGasCost(txInfoThree);
-
-        console.log(`\nGAS COSTS:`);
-        console.log(`TWO: ${gasCostTwo}`);
-        console.log(`THREE: ${gasCostThree}\n`);
-
         const paidAccTwoBal = web3.utils.toBN(await getBalance(accountTwo));
         const paidAccThreeBal = web3.utils.toBN(await getBalance(accountThree));
 
