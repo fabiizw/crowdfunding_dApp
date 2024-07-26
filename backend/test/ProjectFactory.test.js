@@ -354,8 +354,8 @@ contract('ProjectFactory', accounts => {
         });
 
         // Get gasCost for both accounts
-        const gasCostTwo = await calculateGasCost(txInfoTwo);
-        const gasCostThree = await calculateGasCost(txInfoThree);
+        // const gasCostTwo = await calculateGasCost(txInfoTwo);
+        // const gasCostThree = await calculateGasCost(txInfoThree);
 
         const paidAccTwoBal = parseInt(
             web3.utils.fromWei(await getBalance(accountTwo))
