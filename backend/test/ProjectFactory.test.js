@@ -42,7 +42,7 @@ async function calculateGasCost(txInfo) {
 
     // console.log(`gasPrice * gasUsed = ${gasPrice.mul(gasUsed)}`);
 
-    return parseInt(gasPrice.mul(gasUsed));
+    return gasPrice.mul(gasUsed);
 }
 
 /**
@@ -57,8 +57,8 @@ async function calculateGasCost(txInfo) {
 contract('ProjectFactory', accounts => {
     // Setup 2 accounts.
     const accountOne = accounts[0];
-    const accountTwo = accounts[1];
-    const accountThree = accounts[2];
+    let accountTwo = accounts[1];
+    let accountThree = accounts[2];
 
     let UserFactoryInstance
     let ProjectFactoryInstance
@@ -96,7 +96,7 @@ contract('ProjectFactory', accounts => {
             let projectInstance = await Project.at(projectAddress);
 
             // Get the initial balance of the owner of the project
-            const initialOwnerFunds = parseInt(web3.utils.fromWei(await getBalance(accountTwo)));
+            const initialOwnerFunds = parseInt(web3.utils.fromWei(await getBalance(accountTwo), 'ether'));
             // const initialOwnerFunds = web3.utils.toBN(await getBalance(accountTwo));
 
             await projectInstance.contribute({
@@ -112,22 +112,26 @@ contract('ProjectFactory', accounts => {
             const txInfo = await projectInstance.releaseFunds({from: accountTwo});
 
             // Get owner's final balance
-            // let finalOwnerFunds = await getBalance(accountTwo);
-            let finalOwnerFunds = parseInt(web3.utils.fromWei(await getBalance(accountTwo)));
+            // Converting to BigNumber provides precise numerical manipulation
+            let finalOwnerFunds = web3.utils.toBN(await getBalance(accountTwo));
 
             /**
-             *  We initially thought gasCost would be subtracted
-             *  from the owner's balance after calling releaseFunds.
-             *  However, testing has shown that is not to be
+             *  gasCost will be subtracted from the owner's balance
+             *  after calling releaseFunds.
+             *  However negligible it is,
+             *  it could provide incorrect calculations through rounding
+             *  if we don't make such operations
              */
-            // const gasCost = await calculateGasCost(txInfo);
+            const gasCost = await calculateGasCost(txInfo);
             // Calculate owner's final balance after accounting for gas costs
-            // finalOwnerFunds = finalOwnerFunds + gasCost;
+            finalOwnerFunds = parseInt(
+                web3.utils.fromWei((finalOwnerFunds.add(gasCost)).toString(), 'ether'));
 
             assert.equal(
                 finalOwnerFunds - initialOwnerFunds,
                 goal,
-                "Owner should have received the amount stated by the goal");
+                "Owner should have received the amount stated by the goal"
+            );
         });
 
         it("Project is closed", async () => {
@@ -321,6 +325,10 @@ contract('ProjectFactory', accounts => {
         const goal = 10;
         const duration = 1;
 
+        // Setup variables for unused accounts
+        accountTwo = accounts[3];
+        accountThree = accounts[4];
+
         // Create the project through accountOne
         const projectReceipt = await ProjectFactoryInstance.
                                 createProject(ipfsStr, goal, duration);
@@ -335,16 +343,15 @@ contract('ProjectFactory', accounts => {
         projectInstance = await Project.at(projectAddress);
 
         // Get initial balance of two accounts
-        const initAccTwoBal = parseInt(
-            web3.utils.fromWei(await getBalance(accountTwo))
-        );
-        const initAccThreeBal = parseInt(
-            web3.utils.fromWei(await getBalance(accountThree))
-        );
+        const initAccTwoBal = web3.utils.toBN(await getBalance(accountTwo));
+        const initAccThreeBal = web3.utils.toBN(await getBalance(accountThree));
+
+        console.log(`TWO'S INITIAL: ${initAccTwoBal}`);
+        console.log(`THREE'S INITIAL: ${initAccThreeBal}`);
 
         const cont = "2"
 
-        // Call contribute with previous two accounts
+        // Contribute with two accounts and collect their receipts
         // Collect their receipts to calculate their gasCost
         const txInfoTwo = await projectInstance.contribute({
             from: accountTwo, value: web3.utils.toWei(cont, 'ether')
@@ -353,24 +360,39 @@ contract('ProjectFactory', accounts => {
             from: accountThree, value: web3.utils.toWei(cont, 'ether')
         });
 
+        // Call contribute with previous two accounts
         // Get gasCost for both accounts
-        // const gasCostTwo = await calculateGasCost(txInfoTwo);
-        // const gasCostThree = await calculateGasCost(txInfoThree);
+        const gasCostTwo = await calculateGasCost(txInfoTwo);
+        const gasCostThree = await calculateGasCost(txInfoThree);
 
-        const paidAccTwoBal = parseInt(
-            web3.utils.fromWei(await getBalance(accountTwo))
-        );
-        const paidAccThreeBal = parseInt(
-            web3.utils.fromWei(await getBalance(accountThree))
-        );
+        console.log(`\nGAS COSTS:`);
+        console.log(`TWO: ${gasCostTwo}`);
+        console.log(`THREE: ${gasCostThree}\n`);
+
+        const paidAccTwoBal = web3.utils.toBN(await getBalance(accountTwo));
+        const paidAccThreeBal = web3.utils.toBN(await getBalance(accountThree));
+
+        /**
+         *  We need to account for gas difference, which is
+         *  very negligible in this case since Wei is larger than ether.
+         *  This also avoids any rounding errors.
+         */
+        const convertedTwoDiff = parseInt(web3.utils.fromWei(
+            (initAccTwoBal.sub(paidAccTwoBal.add(gasCostTwo)).toString())
+        ))
+        const convertedThreeDiff = parseInt(web3.utils.fromWei(
+            (initAccTwoBal.sub(paidAccThreeBal.add(gasCostThree)).toString())
+        ))
 
         // Make sure both accounts have contributed to the project
+        // Check accountTwo
         assert.equal(
-            initAccTwoBal - paidAccTwoBal,
+            convertedTwoDiff,
             cont,
             "AccountTwo's contribution are not accurate");
+        // Check accountThree
         assert.equal(
-            initAccThreeBal - paidAccThreeBal,
+            convertedThreeDiff,
             cont,
             "AccountThree's contribution are not accurate");
 
@@ -379,20 +401,32 @@ contract('ProjectFactory', accounts => {
         await projectInstance.closeProject();
 
         // Get final balance of the two accounts
-        const finalAccTwoBal = parseInt(web3.utils.fromWei(await getBalance(accountTwo)));
-        const finalAccThreeBal = parseInt(web3.utils.fromWei(await getBalance(accountThree)));
+        const finalAccTwoBal =
+            web3.utils.toBN(await getBalance(accountTwo), 'ether');
+        const finalAccThreeBal =
+            web3.utils.toBN(await getBalance(accountThree), 'ether');
 
-        // Assert that both accounts' final values are equal to intial values
+        /**
+         *  Calculate final balance before gas costs and convert to Ether
+         */
+        const convertedTwoFinal = parseInt(web3.utils.fromWei(
+            (finalAccTwoBal.add(gasCostTwo).toString())
+        ))
+        const convertedThreeFinal = parseInt(web3.utils.fromWei(
+            (finalAccThreeBal.add(gasCostThree).toString())
+        ))
+
+        // Assert that both accounts' final values are equal to initial values
         // Account for gasCost by doing final+gasCost
         assert.equal(
-            finalAccTwoBal,
-            initAccTwoBal,
+            convertedTwoFinal,
+            parseInt(web3.utils.fromWei(initAccTwoBal.toString(), 'ether')),
             "Account Two should have received their contributed funds after refundAll"
         );
 
         assert.equal(
-            finalAccThreeBal,
-            initAccThreeBal,
+            convertedThreeFinal,
+            parseInt(web3.utils.fromWei(initAccThreeBal.toString(), 'ether')),
             "Account Three should have received their contributed funds after refundAll"
         );
     });
