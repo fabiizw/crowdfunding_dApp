@@ -22,6 +22,15 @@ contract UserFactory {
         emit UserCreated(address(newUser));
     }
 
+    // function createUser(string memory ipfsURL, address add) public {
+    //     require(!registeredUsers[add], "User already registered.");
+
+    //     User newUser = new User(ipfsURL, add);
+    //     users.push(newUser);
+    //     registeredUsers[add] = true;
+    //     emit UserCreated(address(newUser));
+    // }
+
     function getUsers() public view returns (User[] memory) {
         return users;
     }
