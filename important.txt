@@ -1,0 +1,122 @@
+The project can be found under: 
+https://github.com/fabiizw/crowdfunding_dApp
+
+
+
+Prerequisites:
+-Node.js
+-Truffle
+-Ganache
+-Postman
+
+
+
+Clone the repo and then run the following command.
+$ npm install
+
+How to compile smart contracts?
+Run the following command in main terminal.
+
+$ truffle compile
+
+How to deploy smart contracts?
+Start your ganache instance with the following command in another terminal. Then run the next command.
+
+$ ganache
+$ truffle migrate
+
+How to interact with dApp?
+Make sure ganache instance is running in another terminal. Then run the following command to start your node.js backend.
+
+$ node app.js
+
+Use the following requests to test the application with Postman.Make sure to change the account addresses.
+
+
+
+Create Users:
+
+{
+  "name": "Alice Johnson",
+  "linkedin": "https://www.linkedin.com/in/alicejohnson",
+  "twitter": "@alicejohnson",
+  "bio": "Blockchain enthusiast and software developer.",
+  "from": "0x26c5C3dCe6Ae180B4d47Bd872e2f781ebAC23f2F" // replace with an actual user address
+}
+
+{
+  "name": "Bob Smith",
+  "linkedin": "https://www.linkedin.com/in/bobsmith",
+  "bio": "Tech entrepreneur and DeFi expert.",
+  "from": "0x05F97Ea47372deB8c9B4dc14a40c5304354eAE85" // replace with an actual user address
+}
+
+{
+  "from": "0x1F62FC64548e82F9a89E6526c42d9a08D54e052C" // replace with an actual user address
+}
+
+
+
+
+Create Projects:
+
+{
+  "name": "Decentralized Art Marketplace",
+  "description": "A platform for artists to showcase and sell their digital artwork directly to buyers.",
+  "goal": "50", // in Ether
+  "duration": "2", // in min
+  "from": "0x26c5C3dCe6Ae180B4d47Bd872e2f781ebAC23f2F" // replace with an actual user address
+}
+
+{
+  "name": "Renewable Energy Funding",
+  "description": "A project aimed at funding renewable energy initiatives using blockchain technology.",
+  "goal": "100", // in Ether
+  "duration": "60", // in min
+  "from": "0x05F97Ea47372deB8c9B4dc14a40c5304354eAE85" // replace with an actual user address
+}
+
+
+
+
+Contribute:
+
+{
+  "projectAddress": "0xProjectAddress", // replace with an actual project address
+  "amount": "10",
+  "from": "0x05F97Ea47372deB8c9B4dc14a40c5304354eAE85" // replace with an actual user address
+}
+
+{
+  "projectAddress": "0xProjectAddress", // replace with an actual project address
+  "amount": "30",
+  "from": "0x1F62FC64548e82F9a89E6526c42d9a08D54e052C" // replace with an actual user address
+}
+
+{
+  "projectAddress": "0xProjectAddress", // replace with an actual project address
+  "amount": "100",
+  "from": "0x26c5C3dCe6Ae180B4d47Bd872e2f781ebAC23f2F" // replace with an actual user address
+}
+
+
+
+
+Release Funds:
+
+{
+  "projectAddress": "0xProjectAddress", // replace with an actual project address
+  "from": "0x1F62FC64548e82F9a89E6526c42d9a08D54e052C" // replace with an actual user address
+}
+
+{
+  "projectAddress": "0xProjectAddress", // replace with an actual project address
+  "from": "0x26c5C3dCe6Ae180B4d47Bd872e2f781ebAC23f2F" // replace with an actual user address
+}
+
+{
+  "projectAddress": "0xProjectAddress", // replace with an actual project address
+  "from": "0x05F97Ea47372deB8c9B4dc14a40c5304354eAE85" // replace with an actual user address
+}
+
+
