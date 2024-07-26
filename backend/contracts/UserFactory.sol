@@ -13,10 +13,10 @@ contract UserFactory {
 
     event UserCreated(address userAddress);
 
-    function createUser(string memory ipfsURL) public {
+    function createUser(string memory _name, uint _age) public {
         require(!registeredUsers[msg.sender], "User already registered.");
 
-        User newUser = new User(ipfsURL, msg.sender);
+        User newUser = new User(_name, _age, msg.sender);
         users.push(newUser);
         registeredUsers[msg.sender] = true;
         emit UserCreated(address(newUser));

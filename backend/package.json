@@ -17,7 +17,6 @@
   },
   "homepage": "https://github.com/fabiizw/crowdfunding_dApp#readme",
   "dependencies": {
-    "@thirdweb-dev/storage": "^2.0.15",
     "express": "^4.19.2",
     "web3": "^4.10.0"
   }

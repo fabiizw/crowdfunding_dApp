@@ -5,7 +5,8 @@ contract Project {
     struct ProjectDetails {
         uint id;
         address payable owner;
-        string ipfsURL;
+        string name;
+        string description;
         uint goal;
         uint amountRaised;
         uint deadline;
@@ -23,14 +24,16 @@ contract Project {
 
     constructor(
         uint projectId,
-        string memory ipfsURL,
+        string memory name,
+        string memory description,
         uint goal,
         uint durationInMinutes,
         address payable owner) {
         project = ProjectDetails({
             id: projectId,
             owner: owner,
-            ipfsURL: ipfsURL,
+            name: name,
+            description: description,
             goal: goal,
             amountRaised: 0,
             deadline: block.timestamp + (durationInMinutes * 1 minutes),
