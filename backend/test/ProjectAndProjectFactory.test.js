@@ -33,11 +33,11 @@ const getBalance = (account, at) =>
 async function calculateGasCost(txInfo) {
     // Obtain gas used and convert to BN
     const gasUsed = web3.utils.toBN(txInfo.receipt.gasUsed);
-   
+
     // Obtain gas price
     const tx = await web3.eth.getTransaction(txInfo.tx);
     const gasPrice = web3.utils.toBN(tx.gasPrice);
-    
+
     return gasPrice.mul(gasUsed);
 }
 
@@ -73,11 +73,14 @@ contract('ProjectFactory', accounts => {
             const goal = 100;
             // duration in minutes
             const duration = 1;
-            // const duration = 0.03; // 1.8 seconds
 
             // msg.sender for contract interaction defaults to accounts[0], so I will use accountTwo
             const projectReceipt = await ProjectFactoryInstance.
-                                        createProject(ipfsStr, goal, duration, {from: accountTwo});
+                                        createProject(
+                                            ipfsStr,
+                                            web3.utils.toWei(goal.toString(), 'ether'),
+                                            duration,
+                                            {from: accountTwo});
 
             let projectAddress;
 
@@ -159,7 +162,7 @@ contract('ProjectFactory', accounts => {
         });
 
         it("0 amount contributed", async () => {
-            const ipfsStr = "project 1.3";
+            const ipfsStr = "project 1.2";
             const goal = 1;
             const duration = 1;
 
@@ -271,119 +274,249 @@ contract('ProjectFactory', accounts => {
         });
     });
 
-    /**
-     *  1. Create project
-     *  2. Get balances of accTwo & accThree
-     *  3. Use accTwo & accThree to transfer funds
-     *  4. Check accTwo & accThree values differ
-     *     from their initial ones by the amount contributed.
-     *     (May have to calculate gasCost
-     *      if the method functions differently to the first test)
-     *  5. Call closeProject so that refundAll can be called
-     *  6. Check final balances are the same as initial,
-     *     accounting for gasCost if needed
-     *
-     */
-    it("refundAll successfully returns contributions", async () => {
-        const ipfsStr = "project 3.1";
-        const goal = 10;
-        const duration = 1;
-
-        // Setup variables for unused accounts
-        accountTwo = accounts[3];
-        accountThree = accounts[4];
-
-        // Create the project through accountOne
-        const projectReceipt = await ProjectFactoryInstance.
-                                createProject(ipfsStr, goal, duration);
-
-        let projectAddress;
-
-        truffleAssert.eventEmitted(projectReceipt, 'ProjectCreated', (ev) => {
-            projectAddress = ev.projectAddress;
-            return ev.owner == accountOne && ev.ipfsURL == ipfsStr;
-        });
-
-        projectInstance = await Project.at(projectAddress);
-
-        // Get initial balance of two accounts
-        const initAccTwoBal = web3.utils.toBN(await getBalance(accountTwo));
-        const initAccThreeBal = web3.utils.toBN(await getBalance(accountThree));
-        const cont = "2"
-
-        // Contribute with two accounts and collect their receipts
-        // Collect their receipts to calculate their gasCost
-        const txInfoTwo = await projectInstance.contribute({
-            from: accountTwo, value: web3.utils.toWei(cont, 'ether')
-        });
-        const txInfoThree = await projectInstance.contribute({
-            from: accountThree, value: web3.utils.toWei(cont, 'ether')
-        });
-
-        // Call contribute with previous two accounts
-        // Get gasCost for both accounts
-        const gasCostTwo = await calculateGasCost(txInfoTwo);
-        const gasCostThree = await calculateGasCost(txInfoThree);
-        const paidAccTwoBal = web3.utils.toBN(await getBalance(accountTwo));
-        const paidAccThreeBal = web3.utils.toBN(await getBalance(accountThree));
-
+    describe("Testing claimRefund", () => {
         /**
-         *  We need to account for gas difference, which is
-         *  very negligible in this case since Wei is larger than ether.
-         *  This also avoids any rounding errors.
+         *  1. Create project
+         *  2. Get balances of accTwo & accThree
+         *  3. Use accTwo & accThree to transfer funds
+         *  4. Check accTwo & accThree values differ
+         *     from their initial ones by the amount contributed.
+         *  5. Call refund with accTwo and check its final balance
+         *  6. Call refund with accThree and check its final balance
+         *
          */
-        const convertedTwoDiff = parseInt(web3.utils.fromWei(
-            (initAccTwoBal.sub(paidAccTwoBal.add(gasCostTwo)).toString())
-        ))
-        const convertedThreeDiff = parseInt(web3.utils.fromWei(
-            (initAccTwoBal.sub(paidAccThreeBal.add(gasCostThree)).toString())
-        ))
+        it("claimRefund successfully returns contributions", async () => {
+            const ipfsStr = "project 3.1";
+            const goal = 10;
+            const duration = 1;
 
-        // Make sure both accounts have contributed to the project
-        // Check accountTwo
-        assert.equal(
-            convertedTwoDiff,
-            cont,
-            "AccountTwo's contribution are not accurate");
-        // Check accountThree
-        assert.equal(
-            convertedThreeDiff,
-            cont,
-            "AccountThree's contribution are not accurate");
+            // Setup variables for unused accounts
+            accountTwo = accounts[3];
+            accountThree = accounts[4];
 
-        // Call the function to close the project,
-        // which will call refundAll and refund everyone
-        await projectInstance.closeProject();
+            // Create the project through accountOne
+            const projectReceipt = await ProjectFactoryInstance.
+                                    createProject(
+                                        ipfsStr,
+                                        web3.utils.toWei(goal.toString(), 'ether'),
+                                        duration
+                                    );
 
-        // Get final balance of the two accounts
-        const finalAccTwoBal =
-            web3.utils.toBN(await getBalance(accountTwo), 'ether');
-        const finalAccThreeBal =
-            web3.utils.toBN(await getBalance(accountThree), 'ether');
+            let projectAddress;
 
-        /**
-         *  Calculate final balance before gas costs and convert to Ether
-         */
-        const convertedTwoFinal = parseInt(web3.utils.fromWei(
-            (finalAccTwoBal.add(gasCostTwo).toString())
-        ))
-        const convertedThreeFinal = parseInt(web3.utils.fromWei(
-            (finalAccThreeBal.add(gasCostThree).toString())
-        ))
+            truffleAssert.eventEmitted(projectReceipt, 'ProjectCreated', (ev) => {
+                projectAddress = ev.projectAddress;
+                return ev.owner == accountOne && ev.ipfsURL == ipfsStr;
+            });
 
-        // Assert that both accounts' final values are equal to initial values
-        // Account for gasCost by doing final+gasCost
-        assert.equal(
-            convertedTwoFinal,
-            parseInt(web3.utils.fromWei(initAccTwoBal.toString(), 'ether')),
-            "Account Two should have received their contributed funds after refundAll"
-        );
+            projectInstance = await Project.at(projectAddress);
 
-        assert.equal(
-            convertedThreeFinal,
-            parseInt(web3.utils.fromWei(initAccThreeBal.toString(), 'ether')),
-            "Account Three should have received their contributed funds after refundAll"
-        );
+            // Get initial balance of two accounts
+            const initAccTwoBal = web3.utils.toBN(await getBalance(accountTwo));
+            const initAccThreeBal = web3.utils.toBN(await getBalance(accountThree));
+            const cont = "2"
+
+            // Contribute with two accounts and collect their receipts
+            // Collect their receipts to calculate their gasCost
+            const contTxTwo = await projectInstance.contribute({
+                from: accountTwo, value: web3.utils.toWei(cont, 'ether')
+            });
+            const contTxThree = await projectInstance.contribute({
+                from: accountThree, value: web3.utils.toWei(cont, 'ether')
+            });
+
+            // Call contribute with previous two accounts
+            // Get gasCost for both accounts
+            const contCostTwo = await calculateGasCost(contTxTwo);
+            const contCostThree = await calculateGasCost(contTxThree);
+            const paidAccTwoBal = web3.utils.toBN(await getBalance(accountTwo));
+            const paidAccThreeBal = web3.utils.toBN(await getBalance(accountThree));
+
+            /**
+             *  We need to account for gas difference, which is
+             *  very negligible in this case since Wei is larger than ether.
+             *  This also avoids any rounding errors.
+             */
+            const convertedTwoDiff = parseInt(web3.utils.fromWei(
+                (initAccTwoBal.sub(paidAccTwoBal.add(contCostTwo)).toString())
+            ), 'ether')
+            const convertedThreeDiff = parseInt(web3.utils.fromWei(
+                (initAccTwoBal.sub(paidAccThreeBal.add(contCostThree)).toString())
+            ), 'ether')
+
+            // Make sure both accounts have contributed to the project
+            // Check accountTwo
+            assert.equal(
+                convertedTwoDiff,
+                cont,
+                "AccountTwo's contribution are not accurate");
+            // Check accountThree
+            assert.equal(
+                convertedThreeDiff,
+                cont,
+                "AccountThree's contribution are not accurate");
+
+            // Close the project to ensure refunds can be made.
+            await projectInstance.closeProject();
+
+            // Claim refund as accountTwo
+            // Retrieve receipt to account for gas
+            const refundTxTwo = await projectInstance.claimRefund({from: accountTwo});
+            const refundCostTwo = await calculateGasCost(refundTxTwo);
+
+            // Get final balance of accountTwo
+            const finalAccTwoBal =
+                web3.utils.toBN(await getBalance(accountTwo));
+
+            // Calculate final balance before gas costs and convert to Ether
+            const convertedTwoFinal = parseInt(web3.utils.fromWei(
+                (finalAccTwoBal.
+                    add(contCostTwo.
+                        add(refundCostTwo)).toString())
+            ), 'ether')
+
+            // Assert that accountTwo's final value is equal to initial value
+            // Account for gasCost by doing final+gasCost
+            assert.equal(
+                convertedTwoFinal,
+                parseInt(web3.utils.fromWei(initAccTwoBal.toString(), 'ether')),
+                "Account Two should have received their contributed funds after refundAll"
+            );
+
+            // Claim refund as accountThree
+            // Retrieve receipt to account for gas
+            const refundTxThree = await projectInstance.claimRefund({from: accountThree});
+            const refundCostThree = await calculateGasCost(refundTxThree);
+
+            // Get final balance of accountThree
+            const finalAccThreeBal =
+                web3.utils.toBN(await getBalance(accountThree));
+
+            // Calculate final balance before gas costs and convert to Ether
+            const convertedThreeFinal = parseInt(web3.utils.fromWei(
+                (finalAccThreeBal.
+                    add(contCostThree.
+                        add(refundCostThree)).toString())
+            ), 'ether')
+
+            // Assert that accountThree's final value is equal to initial value
+            // Account for gasCost by doing final+gasCost
+            assert.equal(
+                convertedThreeFinal,
+                parseInt(web3.utils.fromWei(initAccThreeBal.toString(), 'ether')),
+                "Account Three should have received their contributed funds after refundAll"
+            );
+        });
+
+        it("Claim a refund while the project is still open", async () => {
+            const ipfsStr = "project 3.2";
+            const goal = 10;
+            const duration = 1;
+
+            accountTwo = accounts[3];
+
+            // Create the project through accountOne
+            const projectReceipt = await ProjectFactoryInstance.
+                                    createProject(
+                                        ipfsStr,
+                                        web3.utils.toWei(goal.toString(), 'ether'),
+                                        duration
+                                    );
+
+            let projectAddress;
+
+            truffleAssert.eventEmitted(projectReceipt, 'ProjectCreated', (ev) => {
+                projectAddress = ev.projectAddress;
+                return ev.owner == accountOne && ev.ipfsURL == ipfsStr;
+            });
+
+            projectInstance = await Project.at(projectAddress);
+
+            await projectInstance.contribute({
+                from: accountTwo, value: web3.utils.toWei("2", 'ether')
+            });
+
+            // Try and get the refund, a revert should occur
+            await truffleAssert.reverts(
+                projectInstance.claimRefund({from: accountTwo}),
+                "Project is still open."
+            );
+        });
+
+        it("Claim a refund if the funding goal was reached", async () => {
+            const ipfsStr = "project 3.3";
+            const goal = 5;
+            const duration = 1;
+
+            accountTwo = accounts[3];
+
+            // Create the project through accountOne
+            const projectReceipt = await ProjectFactoryInstance.
+                                    createProject(
+                                        ipfsStr,
+                                        web3.utils.toWei(goal.toString(), 'ether'),
+                                        duration
+                                    );
+
+            let projectAddress;
+
+            truffleAssert.eventEmitted(projectReceipt, 'ProjectCreated', (ev) => {
+                projectAddress = ev.projectAddress;
+                return ev.owner == accountOne && ev.ipfsURL == ipfsStr;
+            });
+
+            projectInstance = await Project.at(projectAddress);
+
+            await projectInstance.contribute({
+                from: accountTwo, value: web3.utils.toWei("5", 'ether')
+            });
+
+            // Close the project since the goal has been met
+            await projectInstance.closeProject();
+
+            // Try and claim the refund, a revert should occur
+            await truffleAssert.reverts(
+                projectInstance.claimRefund({from: accountTwo}),
+                "Funding goal has been reached."
+            );
+        });
+
+        it("Claim a refund if the user never contributed", async () => {
+            const ipfsStr = "project 3.4";
+            const goal = 5;
+            const duration = 1;
+
+            accountTwo = accounts[3];
+
+            // Create the project through accountOne
+            const projectReceipt = await ProjectFactoryInstance.
+                                    createProject(
+                                        ipfsStr,
+                                        web3.utils.toWei(goal.toString(), 'ether'),
+                                        duration
+                                    );
+
+            let projectAddress;
+
+            truffleAssert.eventEmitted(projectReceipt, 'ProjectCreated', (ev) => {
+                projectAddress = ev.projectAddress;
+                return ev.owner == accountOne && ev.ipfsURL == ipfsStr;
+            });
+
+            projectInstance = await Project.at(projectAddress);
+
+            await projectInstance.contribute({
+                from: accountTwo, value: web3.utils.toWei("3", 'ether')
+            });
+
+            // Close the project to emulate the goal not being reached after the funding period
+            await projectInstance.closeProject();
+
+            // Try and claim the refund as accountOne, a revert should occur
+            await truffleAssert.reverts(
+                projectInstance.claimRefund({from: accountOne}),
+                "No contributions to refund."
+            );
+        });
     });
-
 });
