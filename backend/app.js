@@ -14,11 +14,11 @@ const app = express();
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 
 const userFactoryABI = UserFactory.abi;
-const userFactoryAddress = '0xa77750539969ab7108B089Bd1D02524f5BE7bEa3'; // Update this with the deployed address
+const userFactoryAddress = '0x3df4AE1a62cEb790E8cc9b06750cE19A95EAdfB2'; // Update this with the deployed address
 const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
 
 const projectFactoryABI = ProjectFactory.abi;
-const projectFactoryAddress = '0x55F8fBAb4Ac183B2D01C7B83182ADEeC1Cf8c327'; // Update this with the deployed address
+const projectFactoryAddress = '0xE8e64aeF2c884a54e3a5b8FFbB2F2f5eF006661A'; // Update this with the deployed address
 const projectFactoryContract = new web3.eth.Contract(projectFactoryABI, projectFactoryAddress);
 
 app.use(express.json());
@@ -111,7 +111,7 @@ app.post('/createProject', async (req, res) => {
         const ipfsURL = storage.resolveScheme(upload);
 
         // Create project on the blockchain with the IPFS URL
-        const receipt = await projectFactoryContract.methods.createProject(ipfsURL, goal, duration).send({ from, gas: 3000000 });
+        const receipt = await projectFactoryContract.methods.createProject(ipfsURL, web3.utils.toWei(goal.toString(), 'ether'), duration).send({ from, gas: 3000000 });
         console.log(receipt);
 
         const projectAddress = receipt.events.ProjectCreated.returnValues.projectAddress;
@@ -163,7 +163,8 @@ app.get('/projects', async (req, res) => {
         const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
         const details = await projectContract.methods.getProjectDetails().call();
         // Convert goal and amountRaised from Wei to Ether
-        details.amountRaised = web3.utils.fromWei(details.amountRaised.toString(), 'ether');
+        details.goal = web3.utils.fromWei(details.goal, 'ether');
+        details.amountRaised = web3.utils.fromWei(details.amountRaised, 'ether');
         details.deadline = formatTimestamp(parseInt(details.deadline.toString())); // Convert deadline to human-readable format
 
         let offChainDetails = {};
@@ -259,6 +260,40 @@ app.post('/releaseFunds', async (req, res) => {
     }
 });
 
+app.post('/claimRefund', async (req, res) => {
+    const { projectAddress, from } = req.body;
+
+    try {
+        const isRegistered = await isUserRegistered(from);
+        if (!isRegistered) {
+            return res.status(403).json({ error: "User not registered." });
+        }
+
+        const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
+        const projectDetails = await projectContract.methods.getProjectDetails().call();
+
+        if (projectDetails.isOpen) {
+            return res.status(403).json({ error: "Project is still open." });
+        }
+
+        if (projectDetails.amountRaised >= projectDetails.goal) {
+            return res.status(403).json({ error: "Funding goal has been reached, no refunds available." });
+        }
+
+        const receipt = await projectContract.methods.claimRefund().send({ from, gas: 3000000 });
+        console.log(receipt);
+
+        res.json({
+            message: "Refund claimed successfully",
+            projectAddress: projectAddress,
+            from: from
+        });
+    } catch (error) {
+        console.error("Error claiming refund:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/userCount', async (req, res) => {
     try {
         const userAddresses = await userFactoryContract.methods.getUsers().call();
@@ -290,11 +325,12 @@ async function checkProjects() {
             const projectContract = new web3.eth.Contract(Project.abi, projectAddress);
             const details = await projectContract.methods.getProjectDetails().call();
             const amountRaisedInEth = web3.utils.fromWei(details.amountRaised.toString(), 'ether'); // Convert amountRaised from Wei to Ether
+            const goalInEth = web3.utils.fromWei(details.goal.toString(), 'ether'); // Convert goal from Wei to Ether
             // Automatically trigger refundAll if the deadline has passed
 
             const currentTimestamp = Math.floor(Date.now() / 1000);
         
-            if (currentTimestamp > parseInt(details.deadline) && parseFloat(amountRaisedInEth) < parseFloat(details.goal) && details.isOpen) {  
+            if (currentTimestamp > parseInt(details.deadline) && parseFloat(amountRaisedInEth) < parseFloat(goalInEth) && details.isOpen) {  
                 await projectContract.methods.closeProject().send({ from: details.owner, gas: 3000000 });
             }
         }));

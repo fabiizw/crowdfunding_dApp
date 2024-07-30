@@ -64,24 +64,20 @@ contract Project {
         emit FundsReleased(project.id, project.amountRaised);
     }
 
-    function refundAll() internal {
-        if (contributors.length == 0) {
-            return;
-        }
+    function claimRefund() public {
+        require(project.isOpen == false, "Project is still open.");
+        require(project.amountRaised < project.goal, "Funding goal has been reached.");
 
-        for (uint i = 0; i < contributors.length; i++) {
-            address contributor = contributors[i];
-            uint amount = contributions[contributor];
-            if (amount > 0) {
-                contributions[contributor] = 0;
-                payable(contributor).transfer(amount);
-                emit RefundIssued(project.id, contributor, amount);
-            }
-        }
+        uint amount = contributions[msg.sender];
+        require(amount > 0, "No contributions to refund.");
+
+        contributions[msg.sender] = 0;
+        payable(msg.sender).transfer(amount);
+
+        emit RefundIssued(project.id, msg.sender, amount);
     }
 
     function closeProject() public {
-        refundAll();
         project.isOpen = false;
         emit ProjectClosed(project.id);
     }
