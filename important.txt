@@ -11,6 +11,12 @@ Prerequisites:
 
 
 
+Patterns used:
+-Factory Contract Pattern for Projects and Users
+-Pull Payment Pattern for claiming refunds instead of automated refunding (security issue)
+
+
+
 Clone the repo and then run the following command.
 $ npm install
 
@@ -25,14 +31,24 @@ Start your ganache instance with the following command in another terminal. Then
 $ ganache
 $ truffle migrate
 
+Copy the SC addresses into app.js
+
 How to interact with dApp?
 Make sure ganache instance is running in another terminal. Then run the following command to start your node.js backend.
 
 $ node app.js
 
-Use the following requests to test the application with Postman.Make sure to change the account addresses.
+How to run Unittests?
+
+$ truffle test
+
+Use the following requests to test the application with Postman. Make sure to change the account addresses.
 
 
+
+************************************
+PASTE YOUR ACCOUNT ADDRESSES IN HERE
+************************************
 
 Create Users:
 
@@ -56,8 +72,6 @@ Create Users:
 }
 
 
-
-
 Create Projects:
 
 {
@@ -75,8 +89,6 @@ Create Projects:
   "duration": "60", // in min
   "from": "0x05F97Ea47372deB8c9B4dc14a40c5304354eAE85" // replace with an actual user address
 }
-
-
 
 
 Contribute:
@@ -100,8 +112,6 @@ Contribute:
 }
 
 
-
-
 Release Funds:
 
 {
@@ -120,3 +130,9 @@ Release Funds:
 }
 
 
+Claim Refund:
+
+{
+  "projectAddress": "0x0D773B6A99E2d484cfAA62110e01aDA4529b4DBE",
+  "from": "0xC0EFf4404F4f8706C3533e00FBF449A14a5A0Ea6"
+}
