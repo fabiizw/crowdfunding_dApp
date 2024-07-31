@@ -14,11 +14,11 @@ const app = express();
 const web3 = new Web3(new Web3.providers.HttpProvider('http://127.0.0.1:8545'));
 
 const userFactoryABI = UserFactory.abi;
-const userFactoryAddress = '0x3df4AE1a62cEb790E8cc9b06750cE19A95EAdfB2'; // Update this with the deployed address
+const userFactoryAddress = '0x41Dc4a6aE22FbFd3cF7e7A839c9a5375B7A8C84f'; // Update this with the deployed address
 const userFactoryContract = new web3.eth.Contract(userFactoryABI, userFactoryAddress);
 
 const projectFactoryABI = ProjectFactory.abi;
-const projectFactoryAddress = '0xE8e64aeF2c884a54e3a5b8FFbB2F2f5eF006661A'; // Update this with the deployed address
+const projectFactoryAddress = '0x9dCf7F4639F2Ce42FFf352abc0a5fe6E701C4513'; // Update this with the deployed address
 const projectFactoryContract = new web3.eth.Contract(projectFactoryABI, projectFactoryAddress);
 
 app.use(express.json());
